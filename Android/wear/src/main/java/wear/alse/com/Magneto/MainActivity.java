@@ -19,8 +19,7 @@ import java.util.List;
 import static wear.alse.com.Magneto.Common.matrixMultiplication;
 
 public class MainActivity extends Activity implements SensorEventListener,
-        FusedGyroscopeSensorListener
-{
+        FusedGyroscopeSensorListener {
 
     public static final float EPSILON = 0.000000001f;
 
@@ -29,6 +28,8 @@ public class MainActivity extends Activity implements SensorEventListener,
     private static final int MEAN_FILTER_WINDOW = 10;
     private static final int MIN_SAMPLE_COUNT = 30;
 
+    private int accelerationSampleCount = 0;
+    private int magneticSampleCount = 0;
     private boolean hasInitialOrientation = false;
     private boolean stateInitializedCalibrated = false;
     private boolean stateInitializedRaw = false;
@@ -52,6 +53,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 
     // accelerometer and magnetometer based rotation matrix
     private float[] initialRotationMatrix;
+    private float[] acceleration;
+    private float[] magnetic;
 
     private FusedGyroscopeSensor fusedGyroscopeSensor;
 
@@ -66,8 +69,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     private SensorManager sensorManager;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -82,60 +84,106 @@ public class MainActivity extends Activity implements SensorEventListener,
         initFilters();
         displaySpeechRecognizer();
 
-    };
+    }
+
+    ;
 
 
-    public void onResume()
-    {
+    public void onResume() {
         super.onResume();
         restart();
     }
 
-    public void onPause()
-    {
+    public void onPause() {
         super.onPause();
 
         reset();
     }
 
     @Override
-    public void onSensorChanged(SensorEvent event)
-    {
-        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE)
-        {
-            onGyroscopeSensorChanged(event.values, event.timestamp);
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            onAccelerationSensorChanged(event.values, event.timestamp);
         }
 
-        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE_UNCALIBRATED)
-        {
+        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            onMagneticSensorChanged(event.values, event.timestamp);
+        }
+        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+            onGyroscopeSensorChanged(event.values, event.timestamp);
+        }
+        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
             onGyroscopeSensorUncalibratedChanged(event.values, event.timestamp);
         }
     }
 
     @Override
     public void onAngularVelocitySensorChanged(float[] angularVelocity,
-                                               long timeStamp)
-    {
-            //xAxisCalibrated.setText(df.format(Math
-                    //.toDegrees(angularVelocity[0])));
-            //yAxisCalibrated.setText(df.format(Math
-                    //.toDegrees(angularVelocity[1])));
-            //zAxisCalibrated.setText(df.format(Math
-                    //.toDegrees(angularVelocity[2])));
+                                               long timeStamp) {
+        //xAxisCalibrated.setText(df.format(Math
+        //.toDegrees(angularVelocity[0])));
+        //yAxisCalibrated.setText(df.format(Math
+        //.toDegrees(angularVelocity[1])));
+        //zAxisCalibrated.setText(df.format(Math
+        //.toDegrees(angularVelocity[2])));
     }
 
-    public void onGyroscopeSensorChanged(float[] gyroscope, long timestamp)
-    {
+    public void onAccelerationSensorChanged(float[] acceleration, long timeStamp) {
+        // Get a local copy of the raw magnetic values from the device sensor.
+        System.arraycopy(acceleration, 0, this.acceleration, 0,
+                acceleration.length);
+
+        // Use a mean filter to smooth the sensor inputs
+        this.acceleration = accelerationFilter.filterFloat(this.acceleration);
+
+        // Count the number of samples received.
+        accelerationSampleCount++;
+
+        // Only determine the initial orientation after the acceleration sensor
+        // and magnetic sensor have had enough time to be smoothed by the mean
+        // filters. Also, only do this if the orientation hasn't already been
+        // determined since we only need it once.
+        if (accelerationSampleCount > MIN_SAMPLE_COUNT
+                && magneticSampleCount > MIN_SAMPLE_COUNT
+                && !hasInitialOrientation) {
+            calculateOrientation();
+        }
+    }
+
+    public void onMagneticSensorChanged(float[] magnetic, long timeStamp) {
+        // Get a local copy of the raw magnetic values from the device sensor.
+        System.arraycopy(magnetic, 0, this.magnetic, 0, magnetic.length);
+
+        // Use a mean filter to smooth the sensor inputs
+        this.magnetic = magneticFilter.filterFloat(this.magnetic);
+
+        // Count the number of samples received.
+        magneticSampleCount++;
+    }
+
+
+    private void calculateOrientation() {
+        hasInitialOrientation = SensorManager.getRotationMatrix(
+                initialRotationMatrix, null, acceleration, magnetic);
+
+        // Remove the sensor observers since they are no longer required.
+        if (hasInitialOrientation) {
+            sensorManager.unregisterListener(this,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
+            sensorManager.unregisterListener(this,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
+        }
+    }
+
+    public void onGyroscopeSensorChanged(float[] gyroscope, long timestamp) {
         // don't start until first accelerometer/magnetometer orientation has
         // been acquired
-        if (!hasInitialOrientation)
-        {
+        if (!hasInitialOrientation) {
             return;
         }
 
         // Initialization of the gyroscope based rotation matrix
-        if (!stateInitializedCalibrated)
-        {
+        if (!stateInitializedCalibrated) {
             currentRotationMatrixCalibrated = matrixMultiplication(
                     currentRotationMatrixCalibrated, initialRotationMatrix);
 
@@ -144,8 +192,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 
         // This timestep's delta rotation to be multiplied by the current
         // rotation after computing it from the gyro sample data.
-        if (timestampOldCalibrated != 0 && stateInitializedCalibrated)
-        {
+        if (timestampOldCalibrated != 0 && stateInitializedCalibrated) {
             final float dT = (timestamp - timestampOldCalibrated) * NS2S;
 
             // Axis of the rotation sample, not normalized yet.
@@ -158,8 +205,7 @@ public class MainActivity extends Activity implements SensorEventListener,
                     * axisY + axisZ * axisZ);
 
             // Normalize the rotation vector if it's big enough to get the axis
-            if (omegaMagnitude > EPSILON)
-            {
+            if (omegaMagnitude > EPSILON) {
                 axisX /= omegaMagnitude;
                 axisY /= omegaMagnitude;
                 axisZ /= omegaMagnitude;
@@ -195,60 +241,58 @@ public class MainActivity extends Activity implements SensorEventListener,
         timestampOldCalibrated = timestamp;
 
         processOrientation(
-                (float) Math.toDegrees(gyroscopeOrientationCalibrated[0]),
-                (float) Math.toDegrees(gyroscopeOrientationCalibrated[1]),
-                (float) Math.toDegrees(gyroscopeOrientationCalibrated[2])
+                (int) Math.toDegrees(gyroscopeOrientationCalibrated[0]),
+                (int) Math.toDegrees(gyroscopeOrientationCalibrated[1]),
+                (int) Math.toDegrees(gyroscopeOrientationCalibrated[2])
         );
+
     }
 
     // store or discard orientations
-    public void processOrientation(float x, float y, float z){
-        float X = currentGyroscopeOrientationCalibrated[0];
-        float Y = currentGyroscopeOrientationCalibrated[1];
-        float Z = currentGyroscopeOrientationCalibrated[2];
+    public void processOrientation(int x, int y, int z) {
+        int X = (int) currentGyroscopeOrientationCalibrated[0];
+        int Y = (int) currentGyroscopeOrientationCalibrated[1];
+        int Z = (int) currentGyroscopeOrientationCalibrated[2];
         // set this to true if the new point is different from the current point
         Boolean shouldSave = false;
 
         // if one is greater than 360 that means that it is the first time
         // so set the current value but don't save it to the file
-        if(X>360) {
+        if (X > 360) {
             currentGyroscopeOrientationCalibrated[0] = x;
             currentGyroscopeOrientationCalibrated[1] = y;
             currentGyroscopeOrientationCalibrated[2] = z;
             return;
         }
-        if ((X-x>=Common.THRESHOLD_ANGLE) || ((360 - (X-x))>=Common.THRESHOLD_ANGLE) ){
+        if ((Math.abs(X - x) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(X) - Math.abs(x)))%360) >= Common.THRESHOLD_ANGLE)) {
             shouldSave = true;
             currentGyroscopeOrientationCalibrated[0] = x;
         }
-        if ((Y-y>=Common.THRESHOLD_ANGLE) || ((360 - (Y-y))>=Common.THRESHOLD_ANGLE) ){
+        if ((Math.abs(Y - y) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(Y) - Math.abs(y)))%360) >= Common.THRESHOLD_ANGLE)) {
             shouldSave = true;
             currentGyroscopeOrientationCalibrated[1] = y;
         }
-        if ((Z-z>=Common.THRESHOLD_ANGLE) || ((360 - (Z-z))>=Common.THRESHOLD_ANGLE) ){
+        if ((Math.abs(Z - z) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(Z) - Math.abs(z)))%360) >= Common.THRESHOLD_ANGLE)) {
             shouldSave = true;
             currentGyroscopeOrientationCalibrated[2] = z;
         }
 
         // if it is a new gesture then save it to the file
-        if(shouldSave){
-            Commands.write_new_gesture((int)x,(int)y,(int)z);
+        if (shouldSave) {
+            Commands.write_new_gesture((int) x, (int) y, (int) z);
         }
     }
 
     public void onGyroscopeSensorUncalibratedChanged(float[] gyroscope,
-                                                     long timestamp)
-    {
+                                                     long timestamp) {
         // don't start until first accelerometer/magnetometer orientation has
         // been acquired
-        if (!hasInitialOrientation)
-        {
+        if (!hasInitialOrientation) {
             return;
         }
 
         // Initialization of the gyroscope based rotation matrix
-        if (!stateInitializedRaw)
-        {
+        if (!stateInitializedRaw) {
             currentRotationMatrixRaw = matrixMultiplication(
                     currentRotationMatrixRaw, initialRotationMatrix);
 
@@ -258,8 +302,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 
         // This timestep's delta rotation to be multiplied by the current
         // rotation after computing it from the gyro sample data.
-        if (timestampOldRaw != 0 && stateInitializedRaw)
-        {
+        if (timestampOldRaw != 0 && stateInitializedRaw) {
             final float dT = (timestamp - timestampOldRaw) * NS2S;
 
             // Axis of the rotation sample, not normalized yet.
@@ -272,8 +315,7 @@ public class MainActivity extends Activity implements SensorEventListener,
                     * axisY + axisZ * axisZ);
 
             // Normalize the rotation vector if it's big enough to get the axis
-            if (omegaMagnitude > EPSILON)
-            {
+            if (omegaMagnitude > EPSILON) {
                 axisX /= omegaMagnitude;
                 axisY /= omegaMagnitude;
                 axisZ /= omegaMagnitude;
@@ -311,8 +353,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     /**
      * Initialize the mean filters.
      */
-    private void initFilters()
-    {
+    private void initFilters() {
         accelerationFilter = new MeanFilter();
         accelerationFilter.setWindowSize(MEAN_FILTER_WINDOW);
 
@@ -323,9 +364,10 @@ public class MainActivity extends Activity implements SensorEventListener,
     /**
      * Initialize the data structures required for the maths.
      */
-    private void initMaths()
-    {
+    private void initMaths() {
         initialRotationMatrix = new float[9];
+        acceleration = new float[3];
+        magnetic = new float[3];
 
         deltaRotationVectorCalibrated = new float[4];
         deltaRotationMatrixCalibrated = new float[9];
@@ -357,8 +399,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     /**
      * Initialize the sensors.
      */
-    private void initSensors()
-    {
+    private void initSensors() {
         sensorManager = (SensorManager) this
                 .getSystemService(Context.SENSOR_SERVICE);
 
@@ -370,8 +411,7 @@ public class MainActivity extends Activity implements SensorEventListener,
      * Restarts all of the sensor observers and resets the activity to the
      * initial state. This should only be called *after* a call to reset().
      */
-    private void restart()
-    {
+    private void restart() {
         sensorManager.registerListener(this,
                 sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
                 SensorManager.SENSOR_DELAY_FASTEST);
@@ -382,21 +422,18 @@ public class MainActivity extends Activity implements SensorEventListener,
 
         // Do not register for gyroscope updates if we are going to use the
         // fused version of the sensor...
-        if (!useFusedEstimation)
-        {
+        if (!useFusedEstimation) {
             boolean enabled = sensorManager.registerListener(this,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
                     SensorManager.SENSOR_DELAY_FASTEST);
 
-            if (!enabled)
-            {
+            if (!enabled) {
                 showGyroscopeNotAvailableAlert();
             }
         }
 
         // If we want to use the fused version of the gyroscope sensor.
-        if (useFusedEstimation)
-        {
+        if (useFusedEstimation) {
             boolean hasGravity = sensorManager.registerListener(
                     fusedGyroscopeSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY),
@@ -404,8 +441,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 
             // If for some reason the gravity sensor does not exist, fall back
             // onto the acceleration sensor.
-            if (!hasGravity)
-            {
+            if (!hasGravity) {
                 sensorManager.registerListener(fusedGyroscopeSensor,
                         sensorManager
                                 .getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
@@ -428,22 +464,19 @@ public class MainActivity extends Activity implements SensorEventListener,
      * Removes all of the sensor observers and resets the activity to the
      * initial state.
      */
-    private void reset()
-    {
+    private void reset() {
         sensorManager.unregisterListener(this,
                 sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
 
         sensorManager.unregisterListener(this,
                 sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
 
-        if (!useFusedEstimation)
-        {
+        if (!useFusedEstimation) {
             sensorManager.unregisterListener(this,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
         }
 
-        if (useFusedEstimation)
-        {
+        if (useFusedEstimation) {
             sensorManager.unregisterListener(fusedGyroscopeSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
 
@@ -466,8 +499,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         stateInitializedRaw = false;
     }
 
-    private void showGyroscopeNotAvailableAlert()
-    {
+    private void showGyroscopeNotAvailableAlert() {
         AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
 
         // set title
@@ -479,10 +511,8 @@ public class MainActivity extends Activity implements SensorEventListener,
                         "Your device is not equipped with a gyroscope or it is not responding...")
                 .setCancelable(false)
                 .setNegativeButton("I'll look around...",
-                        new DialogInterface.OnClickListener()
-                        {
-                            public void onClick(DialogInterface dialog, int id)
-                            {
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
                                 // if this button is clicked, just close
                                 // the dialog box and do nothing
                                 dialog.cancel();
@@ -497,8 +527,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     }
 
     @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy)
-    {
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
         // TODO Auto-generated method stub
 
     }
@@ -510,7 +539,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-    // Start the activity, the intent will be populated with the speech text
+        // Start the activity, the intent will be populated with the speech text
         startActivityForResult(intent, SPEECH_REQUEST_CODE);
     }
 
