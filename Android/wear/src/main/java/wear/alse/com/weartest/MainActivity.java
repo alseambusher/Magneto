@@ -15,7 +15,6 @@ import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
 import android.util.Log;
-import android.widget.TextView;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -60,16 +59,8 @@ public class MainActivity extends Activity implements SensorEventListener,
     // accelerometer and magnetometer based rotation matrix
     private float[] initialRotationMatrix;
 
-    // accelerometer vector
-    private float[] acceleration;
-
-    // magnetic field vector
-    private float[] magnetic;
-
     private FusedGyroscopeSensor fusedGyroscopeSensor;
 
-    private int accelerationSampleCount = 0;
-    private int magneticSampleCount = 0;
 
     private long timestampOldCalibrated = 0;
     private long timestampOldRaw = 0;
@@ -79,10 +70,6 @@ public class MainActivity extends Activity implements SensorEventListener,
 
     // We need the SensorManager to register for Sensor Events.
     private SensorManager sensorManager;
-
-    private TextView xAxisCalibrated;
-    private TextView yAxisCalibrated;
-    private TextView zAxisCalibrated;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -94,9 +81,6 @@ public class MainActivity extends Activity implements SensorEventListener,
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
             public void onLayoutInflated(WatchViewStub stub) {
-                //xAxisCalibrated = (TextView) findViewById(R.id.xcaliberated);
-                yAxisCalibrated = (TextView) findViewById(R.id.ycaliberated);
-                zAxisCalibrated = (TextView) findViewById(R.id.zcaliberated);
             }
         });
         initMaths();
@@ -110,9 +94,6 @@ public class MainActivity extends Activity implements SensorEventListener,
     public void onResume()
     {
         super.onResume();
-
-        readPrefs();
-
         restart();
     }
 
@@ -126,16 +107,6 @@ public class MainActivity extends Activity implements SensorEventListener,
     @Override
     public void onSensorChanged(SensorEvent event)
     {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-        {
-            onAccelerationSensorChanged(event.values, event.timestamp);
-        }
-
-        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-        {
-            onMagneticSensorChanged(event.values, event.timestamp);
-        }
-
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE)
         {
             onGyroscopeSensorChanged(event.values, event.timestamp);
@@ -169,30 +140,6 @@ public class MainActivity extends Activity implements SensorEventListener,
                     //.toDegrees(angularVelocity[1])));
             //zAxisCalibrated.setText(df.format(Math
                     //.toDegrees(angularVelocity[2])));
-        }
-    }
-
-    public void onAccelerationSensorChanged(float[] acceleration, long timeStamp)
-    {
-        // Get a local copy of the raw magnetic values from the device sensor.
-        System.arraycopy(acceleration, 0, this.acceleration, 0,
-                acceleration.length);
-
-        // Use a mean filter to smooth the sensor inputs
-        this.acceleration = accelerationFilter.filterFloat(this.acceleration);
-
-        // Count the number of samples received.
-        accelerationSampleCount++;
-
-        // Only determine the initial orientation after the acceleration sensor
-        // and magnetic sensor have had enough time to be smoothed by the mean
-        // filters. Also, only do this if the orientation hasn't already been
-        // determined since we only need it once.
-        if (accelerationSampleCount > MIN_SAMPLE_COUNT
-                && magneticSampleCount > MIN_SAMPLE_COUNT
-                && !hasInitialOrientation)
-        {
-            calculateOrientation();
         }
     }
 
@@ -364,43 +311,6 @@ public class MainActivity extends Activity implements SensorEventListener,
 
         timestampOldRaw = timestamp;
 
-        //gaugeBearingRaw.updateBearing(gyroscopeOrientationRaw[0]);
-        //gaugeTiltRaw.updateRotation(gyroscopeOrientationRaw);
-
-    }
-
-    public void onMagneticSensorChanged(float[] magnetic, long timeStamp)
-    {
-        // Get a local copy of the raw magnetic values from the device sensor.
-        System.arraycopy(magnetic, 0, this.magnetic, 0, magnetic.length);
-
-        // Use a mean filter to smooth the sensor inputs
-        this.magnetic = magneticFilter.filterFloat(this.magnetic);
-
-        // Count the number of samples received.
-        magneticSampleCount++;
-    }
-
-    /**
-     * Calculates orientation angles from accelerometer and magnetometer output.
-     * Note that we only use this *once* at the beginning to orient the
-     * gyroscope to earth frame. If you do not call this, the gyroscope will
-     * orient itself to whatever the relative orientation the device is in at
-     * the time of initialization.
-     */
-    private void calculateOrientation()
-    {
-        hasInitialOrientation = SensorManager.getRotationMatrix(
-                initialRotationMatrix, null, acceleration, magnetic);
-
-        // Remove the sensor observers since they are no longer required.
-        if (hasInitialOrientation)
-        {
-            sensorManager.unregisterListener(this,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
-            sensorManager.unregisterListener(this,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
-        }
     }
 
     /**
@@ -420,9 +330,6 @@ public class MainActivity extends Activity implements SensorEventListener,
      */
     private void initMaths()
     {
-        acceleration = new float[3];
-        magnetic = new float[3];
-
         initialRotationMatrix = new float[9];
 
         deltaRotationVectorCalibrated = new float[4];
@@ -573,30 +480,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 
         initMaths();
 
-        accelerationSampleCount = 0;
-        magneticSampleCount = 0;
-
         hasInitialOrientation = false;
         stateInitializedCalibrated = false;
         stateInitializedRaw = false;
-    }
-
-    private void readPrefs()
-    {
-        /*
-        SharedPreferences prefs = PreferenceManager
-                .getDefaultSharedPreferences(this);
-
-        useFusedEstimation = prefs.getBoolean(ConfigActivity.FUSION_PREFERENCE,
-                false);
-
-        useRadianUnits = prefs
-                .getBoolean(ConfigActivity.UNITS_PREFERENCE, true);
-
-        Log.d(tag, "Fusion: " + String.valueOf(useFusedEstimation));
-
-        Log.d(tag, "Units Radians: " + String.valueOf(useRadianUnits));
-        */
     }
 
     private void showGyroscopeNotAvailableAlert()
@@ -629,7 +515,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         alertDialog.show();
     }
 
-    public void writeLog(String msg){
+    private void writeLog(String msg){
         File logFile= new File(LOGFILE);
         try {
             if(!logFile.exists())
@@ -661,12 +547,12 @@ public class MainActivity extends Activity implements SensorEventListener,
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-// Start the activity, the intent will be populated with the speech text
+    // Start the activity, the intent will be populated with the speech text
         startActivityForResult(intent, SPEECH_REQUEST_CODE);
     }
 
     // This callback is invoked when the Speech Recognizer returns.
-// This is where you process the intent and extract the speech text from the intent.
+    // This is where you process the intent and extract the speech text from the intent.
     @Override
     protected void onActivityResult(int requestCode, int resultCode,
                                     Intent data) {
@@ -674,7 +560,7 @@ public class MainActivity extends Activity implements SensorEventListener,
             List<String> results = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
-            // Do something with spokenText
+            SpeechSynthesis.handleMsg(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
