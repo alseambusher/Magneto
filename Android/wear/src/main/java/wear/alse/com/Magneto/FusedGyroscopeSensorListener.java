@@ -1,4 +1,4 @@
-package wear.alse.com.weartest;
+package wear.alse.com.Magneto;
 
 public interface FusedGyroscopeSensorListener
 {

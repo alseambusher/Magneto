@@ -1,6 +1,5 @@
-package wear.alse.com.weartest;
+package wear.alse.com.Magneto;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -10,18 +9,14 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
-import android.util.Log;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.text.DecimalFormat;
 import java.util.List;
+
+import static wear.alse.com.Magneto.Common.matrixMultiplication;
 
 public class MainActivity extends Activity implements SensorEventListener,
         FusedGyroscopeSensorListener
@@ -39,8 +34,6 @@ public class MainActivity extends Activity implements SensorEventListener,
     private boolean stateInitializedRaw = false;
 
     private boolean useFusedEstimation = false;
-    private boolean useRadianUnits = false;
-    private String LOGFILE = "/sdcard/motion.log";
 
     private DecimalFormat df;
 
@@ -49,6 +42,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     private float[] deltaRotationMatrixCalibrated;
     private float[] deltaRotationVectorCalibrated;
     private float[] gyroscopeOrientationCalibrated;
+    private float[] currentGyroscopeOrientationCalibrated;
 
     // Uncalibrated maths
     private float[] currentRotationMatrixRaw;
@@ -122,25 +116,12 @@ public class MainActivity extends Activity implements SensorEventListener,
     public void onAngularVelocitySensorChanged(float[] angularVelocity,
                                                long timeStamp)
     {
-        //gaugeBearingCalibrated.updateBearing(angularVelocity[0]);
-        //gaugeTiltCalibrated.updateRotation(angularVelocity);
-
-        if (useRadianUnits)
-        {
-
-            //xAxisCalibrated.setText(df.format(angularVelocity[0]));
-            //yAxisCalibrated.setText(df.format(angularVelocity[1]));
-            //zAxisCalibrated.setText(df.format(angularVelocity[2]));
-        }
-        else
-        {
             //xAxisCalibrated.setText(df.format(Math
                     //.toDegrees(angularVelocity[0])));
             //yAxisCalibrated.setText(df.format(Math
                     //.toDegrees(angularVelocity[1])));
             //zAxisCalibrated.setText(df.format(Math
                     //.toDegrees(angularVelocity[2])));
-        }
     }
 
     public void onGyroscopeSensorChanged(float[] gyroscope, long timestamp)
@@ -213,31 +194,45 @@ public class MainActivity extends Activity implements SensorEventListener,
 
         timestampOldCalibrated = timestamp;
 
-        //gaugeBearingCalibrated.updateBearing(gyroscopeOrientationCalibrated[0]);
-        //gaugeTiltCalibrated.updateRotation(gyroscopeOrientationCalibrated);
+        processOrientation(
+                (float) Math.toDegrees(gyroscopeOrientationCalibrated[0]),
+                (float) Math.toDegrees(gyroscopeOrientationCalibrated[1]),
+                (float) Math.toDegrees(gyroscopeOrientationCalibrated[2])
+        );
+    }
 
-        if (useRadianUnits)
-        {
-            //Log.d("aaaaaaaaa",
-                    //df.format(gyroscopeOrientationCalibrated[0]));
-            //xAxisCalibrated.setText(df
-                    //.format(gyroscopeOrientationCalibrated[0]));
-            //yAxisCalibrated.setText(df
-                    //.format(gyroscopeOrientationCalibrated[1]));
-            //zAxisCalibrated.setText(df
-                    //.format(gyroscopeOrientationCalibrated[2]));
+    // store or discard orientations
+    public void processOrientation(float x, float y, float z){
+        float X = currentGyroscopeOrientationCalibrated[0];
+        float Y = currentGyroscopeOrientationCalibrated[1];
+        float Z = currentGyroscopeOrientationCalibrated[2];
+        // set this to true if the new point is different from the current point
+        Boolean shouldSave = false;
+
+        // if one is greater than 360 that means that it is the first time
+        // so set the current value but don't save it to the file
+        if(X>360) {
+            currentGyroscopeOrientationCalibrated[0] = x;
+            currentGyroscopeOrientationCalibrated[1] = y;
+            currentGyroscopeOrientationCalibrated[2] = z;
+            return;
         }
-        else
-        {
-            Log.d("aaaaaaaaab",
-                    String.valueOf(Math
-                            .toDegrees(gyroscopeOrientationCalibrated[0])));
-            //xAxisCalibrated.setText(df.format(Math
-                    //.toDegrees(gyroscopeOrientationCalibrated[0])));
-            //yAxisCalibrated.setText(df.format(Math
-                    //.toDegrees(gyroscopeOrientationCalibrated[1])));
-            //zAxisCalibrated.setText(df.format(Math
-                    //.toDegrees(gyroscopeOrientationCalibrated[2])));
+        if ((X-x>=Common.THRESHOLD_ANGLE) || ((360 - (X-x))>=Common.THRESHOLD_ANGLE) ){
+            shouldSave = true;
+            currentGyroscopeOrientationCalibrated[0] = x;
+        }
+        if ((Y-y>=Common.THRESHOLD_ANGLE) || ((360 - (Y-y))>=Common.THRESHOLD_ANGLE) ){
+            shouldSave = true;
+            currentGyroscopeOrientationCalibrated[1] = y;
+        }
+        if ((Z-z>=Common.THRESHOLD_ANGLE) || ((360 - (Z-z))>=Common.THRESHOLD_ANGLE) ){
+            shouldSave = true;
+            currentGyroscopeOrientationCalibrated[2] = z;
+        }
+
+        // if it is a new gesture then save it to the file
+        if(shouldSave){
+            Commands.write_new_gesture((int)x,(int)y,(int)z);
         }
     }
 
@@ -336,11 +331,17 @@ public class MainActivity extends Activity implements SensorEventListener,
         deltaRotationMatrixCalibrated = new float[9];
         currentRotationMatrixCalibrated = new float[9];
         gyroscopeOrientationCalibrated = new float[3];
+        currentGyroscopeOrientationCalibrated = new float[3];
 
         // Initialize the current rotation matrix as an identity matrix...
         currentRotationMatrixCalibrated[0] = 1.0f;
         currentRotationMatrixCalibrated[4] = 1.0f;
         currentRotationMatrixCalibrated[8] = 1.0f;
+
+        //Initialize the current rotation angles to 361 which is improbable
+        currentGyroscopeOrientationCalibrated[0] = 361;
+        currentGyroscopeOrientationCalibrated[1] = 361;
+        currentGyroscopeOrientationCalibrated[2] = 361;
 
         deltaRotationVectorRaw = new float[4];
         deltaRotationMatrixRaw = new float[9];
@@ -364,30 +365,11 @@ public class MainActivity extends Activity implements SensorEventListener,
         fusedGyroscopeSensor = new FusedGyroscopeSensor();
     }
 
-    private float[] matrixMultiplication(float[] a, float[] b)
-    {
-        float[] result = new float[9];
-
-        result[0] = a[0] * b[0] + a[1] * b[3] + a[2] * b[6];
-        result[1] = a[0] * b[1] + a[1] * b[4] + a[2] * b[7];
-        result[2] = a[0] * b[2] + a[1] * b[5] + a[2] * b[8];
-
-        result[3] = a[3] * b[0] + a[4] * b[3] + a[5] * b[6];
-        result[4] = a[3] * b[1] + a[4] * b[4] + a[5] * b[7];
-        result[5] = a[3] * b[2] + a[4] * b[5] + a[5] * b[8];
-
-        result[6] = a[6] * b[0] + a[7] * b[3] + a[8] * b[6];
-        result[7] = a[6] * b[1] + a[7] * b[4] + a[8] * b[7];
-        result[8] = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
-
-        return result;
-    }
 
     /**
      * Restarts all of the sensor observers and resets the activity to the
      * initial state. This should only be called *after* a call to reset().
      */
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void restart()
     {
         sensorManager.registerListener(this,
@@ -446,7 +428,6 @@ public class MainActivity extends Activity implements SensorEventListener,
      * Removes all of the sensor observers and resets the activity to the
      * initial state.
      */
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void reset()
     {
         sensorManager.unregisterListener(this,
@@ -515,24 +496,6 @@ public class MainActivity extends Activity implements SensorEventListener,
         alertDialog.show();
     }
 
-    private void writeLog(String msg){
-        File logFile= new File(LOGFILE);
-        try {
-            if(!logFile.exists())
-                logFile.createNewFile();
-            FileOutputStream fOut = new FileOutputStream(logFile, true);
-            OutputStreamWriter myOutWriter =
-                    new OutputStreamWriter(fOut);
-            myOutWriter.append(msg);
-            myOutWriter.close();
-            fOut.close();
-            Log.d("aaaaaaaaaaaaa", "aaaaaaaaaaaa");
-        } catch (IOException e) {
-            Log.d("aaaaaaaaaaaaa","aaaaaaaaaaaaaaaaaaaaaaaaaaa");
-            e.printStackTrace();
-        }
-    }
-
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy)
     {
@@ -560,9 +523,8 @@ public class MainActivity extends Activity implements SensorEventListener,
             List<String> results = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
-            SpeechSynthesis.handleMsg(spokenText);
+            Commands.handleMsg(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
 }
-

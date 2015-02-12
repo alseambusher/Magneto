@@ -1,4 +1,4 @@
-package wear.alse.com.weartest;
+package wear.alse.com.Magneto;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;
