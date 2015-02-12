@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#adb -s localhost:4444 pull /sdcard/motion.log
+#adb -s localhost:4444 shell  "rm /sdcard/motion.log"
+adb -s 025f4685dcd48c09  pull /sdcard/motion.log
+adb -s 025f4685dcd48c09 shell  "rm /sdcard/motion.log"
+
+cat motion.log| while read line
+do
+	#TODO extract x y z and move mouse
+	echo $line
+done
+rm motion.log
