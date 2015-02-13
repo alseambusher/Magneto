@@ -1,9 +1,7 @@
 package wear.alse.com.Magneto;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -15,6 +13,9 @@ import android.support.wearable.view.WatchViewStub;
 
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static wear.alse.com.Magneto.Common.matrixMultiplication;
 
@@ -82,12 +83,9 @@ public class MainActivity extends Activity implements SensorEventListener,
         initMaths();
         initSensors();
         initFilters();
-        displaySpeechRecognizer();
+        SpeechRecognizerInit();
 
     }
-
-    ;
-
 
     public void onResume() {
         super.onResume();
@@ -426,10 +424,6 @@ public class MainActivity extends Activity implements SensorEventListener,
             boolean enabled = sensorManager.registerListener(this,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
                     SensorManager.SENSOR_DELAY_FASTEST);
-
-            if (!enabled) {
-                showGyroscopeNotAvailableAlert();
-            }
         }
 
         // If we want to use the fused version of the gyroscope sensor.
@@ -499,33 +493,6 @@ public class MainActivity extends Activity implements SensorEventListener,
         stateInitializedRaw = false;
     }
 
-    private void showGyroscopeNotAvailableAlert() {
-        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
-
-        // set title
-        alertDialogBuilder.setTitle("Gyroscope Not Available");
-
-        // set dialog message
-        alertDialogBuilder
-                .setMessage(
-                        "Your device is not equipped with a gyroscope or it is not responding...")
-                .setCancelable(false)
-                .setNegativeButton("I'll look around...",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int id) {
-                                // if this button is clicked, just close
-                                // the dialog box and do nothing
-                                dialog.cancel();
-                            }
-                        });
-
-        // create alert dialog
-        AlertDialog alertDialog = alertDialogBuilder.create();
-
-        // show it
-        alertDialog.show();
-    }
-
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
         // TODO Auto-generated method stub
@@ -533,14 +500,29 @@ public class MainActivity extends Activity implements SensorEventListener,
     }
 
     private static final int SPEECH_REQUEST_CODE = 0;
+    private static final int SPEECH_REQUEST_CLOSE_CODE = 1;
+    private static final ScheduledExecutorService worker =
+            Executors.newSingleThreadScheduledExecutor();
+
 
     // Create an intent that can start the Speech Recognizer activity
-    private void displaySpeechRecognizer() {
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+    private void SpeechRecognizerInit() {
+        final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        // Start the activity, the intent will be populated with the speech text
-        startActivityForResult(intent, SPEECH_REQUEST_CODE);
+        (new displaySpeechRecognizer(intent)).run();
+    }
+
+    public class displaySpeechRecognizer implements Runnable{
+        Intent intent;
+        displaySpeechRecognizer(Intent i){
+            intent = i;
+        }
+        @Override
+        public void run() {
+            startActivityForResult(intent, SPEECH_REQUEST_CODE);
+            worker.schedule(this, 8, TimeUnit.SECONDS);
+        }
     }
 
     // This callback is invoked when the Speech Recognizer returns.
@@ -555,5 +537,6 @@ public class MainActivity extends Activity implements SensorEventListener,
             Commands.handleMsg(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);
+
     }
 }

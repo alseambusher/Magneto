@@ -2,12 +2,17 @@
 
 #adb -s localhost:4444 pull /sdcard/motion.log
 #adb -s localhost:4444 shell  "rm /sdcard/motion.log"
-adb -s 025f4685dcd48c09  pull /sdcard/motion.log
-adb -s 025f4685dcd48c09 shell  "rm /sdcard/motion.log"
-
-cat motion.log| while read line
+DEVICE=025f4685dcd48c09
+while [ 0 ]
 do
-	#TODO extract x y z and move mouse
-	echo $line
+    adb -s $DEVICE pull /sdcard/motion.log 2>/dev/null
+    adb -s $DEVICE shell  "rm /sdcard/motion.log 2>/dev/null" 2>/dev/null
+
+    cat motion.log 2>/dev/null| while read line
+    do
+        x=`echo $line| cut -d ' ' -f 1`
+        y=`echo $line| cut -d ' ' -f 2`
+        xdotool mousemove `echo "scale=5;(s($x*0.017453293)/c($x*0.017453293))*800+500"|bc -l`  `echo "scale=5;(s($y*0.017453293)/c($y*0.017453293))*800"|bc -l`
+    done
+    rm motion.log 2>/dev/null
 done
-rm motion.log

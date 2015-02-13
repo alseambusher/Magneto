@@ -1,0 +1,8 @@
+#!/bin/bash
+echo "">out
+cat commands| while read line
+do
+    value=`echo $line| awk '{print $NF}'`
+    command=`expr "$line" : "\(.*\) $value"`
+    echo "put(\"$command\",\"$value\");" >>out
+done

@@ -1,0 +1,14 @@
+close window 1
+minimise 2
+minimize 2
+maximize 3
+minimise 3
+next 4
+fill 5
+back 6
+select all 7
+undo 8
+copy 9
+cut 10
+right click 11
+left click 12
