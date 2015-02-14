@@ -3,6 +3,7 @@
 #adb -s localhost:4444 pull /sdcard/motion.log
 #adb -s localhost:4444 shell  "rm /sdcard/motion.log"
 DEVICE=025f4685dcd48c09
+#DEVICE="localhost:4444"
 while [ 0 ]
 do
     adb -s $DEVICE pull /sdcard/motion.log 2>/dev/null
@@ -12,7 +13,9 @@ do
     do
         x=`echo $line| cut -d ' ' -f 1`
         y=`echo $line| cut -d ' ' -f 2`
-        xdotool mousemove `echo "scale=5;(s($x*0.017453293)/c($x*0.017453293))*800+500"|bc -l`  `echo "scale=5;(s($y*0.017453293)/c($y*0.017453293))*800"|bc -l`
+        #ipython clicker.py 2 `echo "scale=5;(s($x*0.017453293)/c($x*0.017453293))*400+500"|bc -l`  `echo "scale=5;(s($y*0.017453293)/c($y*0.017453293))*400+500"|bc -l`
+        xdotool mousemove `echo "scale=5;(s($x*0.017453293)/c($x*0.017453293))*400+500"|bc -l`  `echo "scale=5;(s($y*0.017453293)/c($y*0.017453293))*400+400"|bc -l`
+
     done
     rm motion.log 2>/dev/null
 done

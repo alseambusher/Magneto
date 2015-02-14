@@ -14,25 +14,52 @@ import java.util.Map;
  */
 public class Commands {
 
+    public static String DICTATE="dictate";
+    public static Boolean isDictation = false;
     static final Map<String, String> commandMap = new HashMap<String, String>() {{
         put("close window","1");
         put("minimise","2");
         put("minimize","2");
         put("maximize","3");
-        put("minimise","3");
+        put("maximise","3");
         put("next","4");
-        put("fill","5");
+        //put("fill","5");
         put("back","6");
         put("select all","7");
-        put("minimize","8");
+        put("undo","8");
+        put("copy","9");
+        put("cut","10");
+        put("right click","11");
+        put("click","12");
+        put("open quickbooks","13");
+        put("paste","14");
+        put("zoom in","15");
+        put("zoomin","15");
+        put("zoom out","16");
     }};
 
     public static void handleMsg(String msg){
+
         Object value = commandMap.get(msg);
         Log.d("alse",String.valueOf(value));
         Log.d("alse",msg);
+        if(isDictation){
+            Common.TIME_DELAY_SPEECH_RECOGNIZER = 8;
+            write_new_dictation(msg);
+            isDictation = false;
+            return;
+        }
         if(value!=null){
             write_new_voice(String.valueOf(value));
+        }
+        try {
+           String  command = msg.split(" ")[0];
+            if(command.toLowerCase().equals(DICTATE)){
+                Common.TIME_DELAY_SPEECH_RECOGNIZER = 20;
+                isDictation = true;
+            }
+        } catch (Exception e){
+
         }
     }
 
@@ -44,6 +71,10 @@ public class Commands {
 
     public static void write_new_voice(String msg){
         writeLog(msg+"\n", Common.VOICE_LOGFILE);
+    }
+
+    public static void write_new_dictation(String msg){
+        writeLog(msg, Common.DICTATE_LOGFILE);
     }
 
     public static void writeLog(String msg, String _file){

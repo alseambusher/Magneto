@@ -10,6 +10,7 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
+import android.widget.Toast;
 
 import java.text.DecimalFormat;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static wear.alse.com.Magneto.Common.TIME_DELAY_SPEECH_RECOGNIZER;
 import static wear.alse.com.Magneto.Common.matrixMultiplication;
 
 public class MainActivity extends Activity implements SensorEventListener,
@@ -171,6 +173,7 @@ public class MainActivity extends Activity implements SensorEventListener,
             sensorManager.unregisterListener(this,
                     sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
         }
+
     }
 
     public void onGyroscopeSensorChanged(float[] gyroscope, long timestamp) {
@@ -507,21 +510,18 @@ public class MainActivity extends Activity implements SensorEventListener,
 
     // Create an intent that can start the Speech Recognizer activity
     private void SpeechRecognizerInit() {
-        final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        (new displaySpeechRecognizer(intent)).run();
+        (new displaySpeechRecognizer()).run();
     }
 
     public class displaySpeechRecognizer implements Runnable{
-        Intent intent;
-        displaySpeechRecognizer(Intent i){
-            intent = i;
-        }
         @Override
         public void run() {
+            final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             startActivityForResult(intent, SPEECH_REQUEST_CODE);
-            worker.schedule(this, 8, TimeUnit.SECONDS);
+            worker.schedule(this, TIME_DELAY_SPEECH_RECOGNIZER, TimeUnit.SECONDS);
+            Common.TIME_DELAY_SPEECH_RECOGNIZER = 8;
         }
     }
 
@@ -534,6 +534,7 @@ public class MainActivity extends Activity implements SensorEventListener,
             List<String> results = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
+            Toast.makeText(this,spokenText,Toast.LENGTH_SHORT).show();
             Commands.handleMsg(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);

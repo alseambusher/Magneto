@@ -1,0 +1,76 @@
+#!/bin/bash
+
+#adb -s localhost:4444 pull /sdcard/motion.log
+#adb -s localhost:4444 shell  "rm /sdcard/motion.log"
+DEVICE=025f4685dcd48c09
+while [ 0 ]
+do
+    adb -s $DEVICE pull /sdcard/voice.log 2>/dev/null
+    if [ -f "voice.log" ]
+    then
+        adb -s $DEVICE shell  "rm /sdcard/voice.log 2>/dev/null" 2>/dev/null
+        cat voice.log 2>/dev/null| while read line
+        do
+            echo $line
+            case $line in
+                1)
+                    echo 'tell application "System Events" to keystroke "w" using command down'|osascript
+                    ;;
+                2)
+                    echo 'tell application "System Events" to keystroke "m" using command down'|osascript
+                    ;;
+
+                3)
+                    ;;
+
+                4)
+                    echo 'tell application "System Events" to key code 48'|osascript
+                    ;;
+
+                5)
+                    ;;
+
+                6)
+                    echo 'tell application "System Events" to key code 51'|osascript
+                    ;;
+
+                7)
+                    echo 'tell application "System Events" to keystroke "a" using command down'|osascript
+                    ;;
+
+                8)
+                    echo 'tell application "System Events" to keystroke "z" using command down'|osascript
+                    ;;
+
+                9)
+                    echo 'tell application "System Events" to keystroke "c" using command down'|osascript
+                    ;;
+
+                10)
+                    echo 'tell application "System Events" to keystroke "x" using command down'|osascript
+                    ;;
+
+                11)
+                    ;;
+
+                12) 
+                    ;;
+
+                13)
+                    exec /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome  "https://qbo.intuit.com/app/homepage"
+                    ;;
+                14)
+                    echo 'tell application "System Events" to keystroke "v" using command down'|osascript
+                    ;;
+                15)
+                    echo 'tell application "System Events" to keystroke "+" using command down'|osascript
+                    ;;
+                16)
+                    echo 'tell application "System Events" to keystroke "-" using command down'|osascript
+                    ;;
+            esac
+        done
+        rm voice.log 2>/dev/null
+    fi
+ done
+#echo "tell application \"System Events\" to keystroke \"$1\"" | osascript
