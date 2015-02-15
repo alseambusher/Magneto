@@ -18,10 +18,10 @@ public class FusedGyroscopeSensor implements SensorEventListener
 
     // private static final float NS2S = 1.0f / 10000.0f;
     // Nano-second to second conversion
-    private static final float NS2S = 1.0f / 1000000000.0f;
+    public static final float NS2S = 1.0f / 1000000000.0f;
 
     // list to keep track of the observers
-    private ArrayList<FusedGyroscopeSensorListener> observersAngularVelocity;
+    private ArrayList<GyroListener> observersAngularVelocity;
 
     private boolean hasOrientation = false;
 
@@ -78,7 +78,7 @@ public class FusedGyroscopeSensor implements SensorEventListener
     {
         super();
 
-        observersAngularVelocity = new ArrayList<FusedGyroscopeSensorListener>();
+        observersAngularVelocity = new ArrayList<GyroListener>();
 
         meanFilterAcceleration = new MeanFilter();
         meanFilterAcceleration.setWindowSize(10);
@@ -132,19 +132,19 @@ public class FusedGyroscopeSensor implements SensorEventListener
     {
         System.arraycopy(gyroOrientation, 0, absoluteFrameOrientation, 0, 3);
 
-        for (FusedGyroscopeSensorListener g : observersAngularVelocity)
+        for (GyroListener g : observersAngularVelocity)
         {
             g.onAngularVelocitySensorChanged(absoluteFrameOrientation,
                     timeStamp);
         }
     }
 
-    public void registerObserver(FusedGyroscopeSensorListener g)
+    public void registerObserver(GyroListener g)
     {
         observersAngularVelocity.add(g);
     }
 
-    public void removeObserver(FusedGyroscopeSensorListener g)
+    public void removeObserver(GyroListener g)
     {
         int i = observersAngularVelocity.indexOf(g);
         if (i >= 0)
@@ -255,7 +255,7 @@ public class FusedGyroscopeSensor implements SensorEventListener
      * @param B
      * @return A*B
      */
-    private float[] matrixMultiplication(float[] A, float[] B)
+    public static float[] matrixMultiplication(float[] A, float[] B)
     {
         float[] result = new float[9];
 

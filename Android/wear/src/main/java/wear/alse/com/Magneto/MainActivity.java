@@ -12,22 +12,19 @@ import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
 import android.widget.Toast;
 
-import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static wear.alse.com.Magneto.Common.TIME_DELAY_SPEECH_RECOGNIZER;
-import static wear.alse.com.Magneto.Common.matrixMultiplication;
+import static wear.alse.com.Magneto.FusedGyroscopeSensor.EPSILON;
+import static wear.alse.com.Magneto.FusedGyroscopeSensor.NS2S;
+import static wear.alse.com.Magneto.FusedGyroscopeSensor.matrixMultiplication;
 
 public class MainActivity extends Activity implements SensorEventListener,
-        FusedGyroscopeSensorListener {
+        GyroListener {
 
-    public static final float EPSILON = 0.000000001f;
-
-    private static final String tag = MainActivity.class.getSimpleName();
-    private static final float NS2S = 1.0f / 1000000000.0f;
     private static final int MEAN_FILTER_WINDOW = 10;
     private static final int MIN_SAMPLE_COUNT = 30;
 
@@ -38,8 +35,6 @@ public class MainActivity extends Activity implements SensorEventListener,
     private boolean stateInitializedRaw = false;
 
     private boolean useFusedEstimation = false;
-
-    private DecimalFormat df;
 
     // Calibrated maths.
     private float[] currentRotationMatrixCalibrated;
@@ -59,7 +54,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     private float[] acceleration;
     private float[] magnetic;
 
-    private FusedGyroscopeSensor fusedGyroscopeSensor;
+    private FusedGyroscopeSensor gyroSensor;
 
 
     private long timestampOldCalibrated = 0;
@@ -404,7 +399,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         sensorManager = (SensorManager) this
                 .getSystemService(Context.SENSOR_SERVICE);
 
-        fusedGyroscopeSensor = new FusedGyroscopeSensor();
+        gyroSensor = new FusedGyroscopeSensor();
     }
 
 
@@ -432,25 +427,25 @@ public class MainActivity extends Activity implements SensorEventListener,
         // If we want to use the fused version of the gyroscope sensor.
         if (useFusedEstimation) {
             boolean hasGravity = sensorManager.registerListener(
-                    fusedGyroscopeSensor,
+                    gyroSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY),
                     SensorManager.SENSOR_DELAY_FASTEST);
 
             // If for some reason the gravity sensor does not exist, fall back
             // onto the acceleration sensor.
             if (!hasGravity) {
-                sensorManager.registerListener(fusedGyroscopeSensor,
+                sensorManager.registerListener(gyroSensor,
                         sensorManager
                                 .getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
                         SensorManager.SENSOR_DELAY_FASTEST);
             }
 
-            sensorManager.registerListener(fusedGyroscopeSensor,
+            sensorManager.registerListener(gyroSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                     SensorManager.SENSOR_DELAY_FASTEST);
 
             boolean enabled = sensorManager.registerListener(
-                    fusedGyroscopeSensor,
+                    gyroSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
                     SensorManager.SENSOR_DELAY_FASTEST);
 
@@ -474,19 +469,19 @@ public class MainActivity extends Activity implements SensorEventListener,
         }
 
         if (useFusedEstimation) {
-            sensorManager.unregisterListener(fusedGyroscopeSensor,
+            sensorManager.unregisterListener(gyroSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
 
-            sensorManager.unregisterListener(fusedGyroscopeSensor,
+            sensorManager.unregisterListener(gyroSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
 
-            sensorManager.unregisterListener(fusedGyroscopeSensor,
+            sensorManager.unregisterListener(gyroSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
 
-            sensorManager.unregisterListener(fusedGyroscopeSensor,
+            sensorManager.unregisterListener(gyroSensor,
                     sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
 
-            fusedGyroscopeSensor.removeObserver(this);
+            gyroSensor.removeObserver(this);
         }
 
         initMaths();
@@ -503,22 +498,25 @@ public class MainActivity extends Activity implements SensorEventListener,
     }
 
     private static final int SPEECH_REQUEST_CODE = 0;
-    private static final int SPEECH_REQUEST_CLOSE_CODE = 1;
     private static final ScheduledExecutorService worker =
             Executors.newSingleThreadScheduledExecutor();
 
 
     // Create an intent that can start the Speech Recognizer activity
     private void SpeechRecognizerInit() {
-        (new displaySpeechRecognizer()).run();
+        final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        (new displaySpeechRecognizer(intent)).run();
     }
 
     public class displaySpeechRecognizer implements Runnable{
+        Intent intent;
+        displaySpeechRecognizer(Intent i){
+            intent = i;
+        }
         @Override
         public void run() {
-            final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             startActivityForResult(intent, SPEECH_REQUEST_CODE);
             worker.schedule(this, TIME_DELAY_SPEECH_RECOGNIZER, TimeUnit.SECONDS);
             Common.TIME_DELAY_SPEECH_RECOGNIZER = 8;
