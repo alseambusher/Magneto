@@ -307,6 +307,8 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
         sensorManager = (SensorManager) this
                 .getSystemService(Context.SENSOR_SERVICE);
 
+        fusedGyroscopeSensor = new FusedGyroscopeSensor();
+
     }
 
 
