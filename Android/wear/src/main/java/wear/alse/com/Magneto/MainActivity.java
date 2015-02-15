@@ -17,13 +17,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static wear.alse.com.Magneto.Common.TIME_DELAY_SPEECH_RECOGNIZER;
-import static wear.alse.com.Magneto.FusedGyroscopeSensor.EPSILON;
-import static wear.alse.com.Magneto.FusedGyroscopeSensor.NS2S;
-import static wear.alse.com.Magneto.FusedGyroscopeSensor.matrixMultiplication;
+import static wear.alse.com.Magneto.Common.*;
 
-public class MainActivity extends Activity implements SensorEventListener,
-        GyroListener {
+public class MainActivity extends Activity implements SensorEventListener {
 
     private static final int MEAN_FILTER_WINDOW = 10;
     private static final int MIN_SAMPLE_COUNT = 30;
@@ -32,9 +28,12 @@ public class MainActivity extends Activity implements SensorEventListener,
     private int magneticSampleCount = 0;
     private boolean hasInitialOrientation = false;
     private boolean stateInitializedCalibrated = false;
-    private boolean stateInitializedRaw = false;
 
-    private boolean useFusedEstimation = false;
+    public static final float EPSILON = 0.000000001f;
+
+    // private static final float NS2S = 1.0f / 10000.0f;
+    // Nano-second to second conversion
+    public static final float NS2S = 1.0f / 1000000000.0f;
 
     // Calibrated maths.
     private float[] currentRotationMatrixCalibrated;
@@ -45,20 +44,13 @@ public class MainActivity extends Activity implements SensorEventListener,
 
     // Uncalibrated maths
     private float[] currentRotationMatrixRaw;
-    private float[] deltaRotationMatrixRaw;
-    private float[] deltaRotationVectorRaw;
-    private float[] gyroscopeOrientationRaw;
 
     // accelerometer and magnetometer based rotation matrix
     private float[] initialRotationMatrix;
     private float[] acceleration;
     private float[] magnetic;
 
-    private FusedGyroscopeSensor gyroSensor;
-
-
     private long timestampOldCalibrated = 0;
-    private long timestampOldRaw = 0;
 
     private MeanFilter accelerationFilter;
     private MeanFilter magneticFilter;
@@ -107,21 +99,8 @@ public class MainActivity extends Activity implements SensorEventListener,
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             onGyroscopeSensorChanged(event.values, event.timestamp);
         }
-        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
-            onGyroscopeSensorUncalibratedChanged(event.values, event.timestamp);
-        }
     }
 
-    @Override
-    public void onAngularVelocitySensorChanged(float[] angularVelocity,
-                                               long timeStamp) {
-        //xAxisCalibrated.setText(df.format(Math
-        //.toDegrees(angularVelocity[0])));
-        //yAxisCalibrated.setText(df.format(Math
-        //.toDegrees(angularVelocity[1])));
-        //zAxisCalibrated.setText(df.format(Math
-        //.toDegrees(angularVelocity[2])));
-    }
 
     public void onAccelerationSensorChanged(float[] acceleration, long timeStamp) {
         // Get a local copy of the raw magnetic values from the device sensor.
@@ -274,78 +253,8 @@ public class MainActivity extends Activity implements SensorEventListener,
         }
 
         // if it is a new gesture then save it to the file
-        if (shouldSave) {
-            Commands.write_new_gesture((int) x, (int) y, (int) z);
-        }
+        if (shouldSave) Commands.write_new_gesture(x, y, z);
     }
-
-    public void onGyroscopeSensorUncalibratedChanged(float[] gyroscope,
-                                                     long timestamp) {
-        // don't start until first accelerometer/magnetometer orientation has
-        // been acquired
-        if (!hasInitialOrientation) {
-            return;
-        }
-
-        // Initialization of the gyroscope based rotation matrix
-        if (!stateInitializedRaw) {
-            currentRotationMatrixRaw = matrixMultiplication(
-                    currentRotationMatrixRaw, initialRotationMatrix);
-
-            stateInitializedRaw = true;
-
-        }
-
-        // This timestep's delta rotation to be multiplied by the current
-        // rotation after computing it from the gyro sample data.
-        if (timestampOldRaw != 0 && stateInitializedRaw) {
-            final float dT = (timestamp - timestampOldRaw) * NS2S;
-
-            // Axis of the rotation sample, not normalized yet.
-            float axisX = gyroscope[0];
-            float axisY = gyroscope[1];
-            float axisZ = gyroscope[2];
-
-            // Calculate the angular speed of the sample
-            float omegaMagnitude = (float) Math.sqrt(axisX * axisX + axisY
-                    * axisY + axisZ * axisZ);
-
-            // Normalize the rotation vector if it's big enough to get the axis
-            if (omegaMagnitude > EPSILON) {
-                axisX /= omegaMagnitude;
-                axisY /= omegaMagnitude;
-                axisZ /= omegaMagnitude;
-            }
-
-            // Integrate around this axis with the angular speed by the timestep
-            // in order to get a delta rotation from this sample over the
-            // timestep. We will convert this axis-angle representation of the
-            // delta rotation into a quaternion before turning it into the
-            // rotation matrix.
-            float thetaOverTwo = omegaMagnitude * dT / 2.0f;
-
-            float sinThetaOverTwo = (float) Math.sin(thetaOverTwo);
-            float cosThetaOverTwo = (float) Math.cos(thetaOverTwo);
-
-            deltaRotationVectorRaw[0] = sinThetaOverTwo * axisX;
-            deltaRotationVectorRaw[1] = sinThetaOverTwo * axisY;
-            deltaRotationVectorRaw[2] = sinThetaOverTwo * axisZ;
-            deltaRotationVectorRaw[3] = cosThetaOverTwo;
-
-            SensorManager.getRotationMatrixFromVector(deltaRotationMatrixRaw,
-                    deltaRotationVectorRaw);
-
-            currentRotationMatrixRaw = matrixMultiplication(
-                    currentRotationMatrixRaw, deltaRotationMatrixRaw);
-
-            SensorManager.getOrientation(currentRotationMatrixRaw,
-                    gyroscopeOrientationRaw);
-        }
-
-        timestampOldRaw = timestamp;
-
-    }
-
     /**
      * Initialize the mean filters.
      */
@@ -381,10 +290,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         currentGyroscopeOrientationCalibrated[1] = 361;
         currentGyroscopeOrientationCalibrated[2] = 361;
 
-        deltaRotationVectorRaw = new float[4];
-        deltaRotationMatrixRaw = new float[9];
         currentRotationMatrixRaw = new float[9];
-        gyroscopeOrientationRaw = new float[3];
 
         // Initialize the current rotation matrix as an identity matrix...
         currentRotationMatrixRaw[0] = 1.0f;
@@ -399,7 +305,6 @@ public class MainActivity extends Activity implements SensorEventListener,
         sensorManager = (SensorManager) this
                 .getSystemService(Context.SENSOR_SERVICE);
 
-        gyroSensor = new FusedGyroscopeSensor();
     }
 
 
@@ -416,40 +321,6 @@ public class MainActivity extends Activity implements SensorEventListener,
                 sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                 SensorManager.SENSOR_DELAY_FASTEST);
 
-        // Do not register for gyroscope updates if we are going to use the
-        // fused version of the sensor...
-        if (!useFusedEstimation) {
-            boolean enabled = sensorManager.registerListener(this,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
-                    SensorManager.SENSOR_DELAY_FASTEST);
-        }
-
-        // If we want to use the fused version of the gyroscope sensor.
-        if (useFusedEstimation) {
-            boolean hasGravity = sensorManager.registerListener(
-                    gyroSensor,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY),
-                    SensorManager.SENSOR_DELAY_FASTEST);
-
-            // If for some reason the gravity sensor does not exist, fall back
-            // onto the acceleration sensor.
-            if (!hasGravity) {
-                sensorManager.registerListener(gyroSensor,
-                        sensorManager
-                                .getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
-                        SensorManager.SENSOR_DELAY_FASTEST);
-            }
-
-            sensorManager.registerListener(gyroSensor,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
-                    SensorManager.SENSOR_DELAY_FASTEST);
-
-            boolean enabled = sensorManager.registerListener(
-                    gyroSensor,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
-                    SensorManager.SENSOR_DELAY_FASTEST);
-
-        }
     }
 
     /**
@@ -463,32 +334,13 @@ public class MainActivity extends Activity implements SensorEventListener,
         sensorManager.unregisterListener(this,
                 sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
 
-        if (!useFusedEstimation) {
-            sensorManager.unregisterListener(this,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
-        }
-
-        if (useFusedEstimation) {
-            sensorManager.unregisterListener(gyroSensor,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
-
-            sensorManager.unregisterListener(gyroSensor,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
-
-            sensorManager.unregisterListener(gyroSensor,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
-
-            sensorManager.unregisterListener(gyroSensor,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
-
-            gyroSensor.removeObserver(this);
-        }
+         sensorManager.unregisterListener(this,
+                sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
 
         initMaths();
 
         hasInitialOrientation = false;
         stateInitializedCalibrated = false;
-        stateInitializedRaw = false;
     }
 
     @Override
