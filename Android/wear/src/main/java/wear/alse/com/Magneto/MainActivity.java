@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 import static wear.alse.com.Magneto.Common.*;
 
-public class MainActivity extends Activity implements SensorEventListener {
+public class MainActivity extends Activity implements SensorEventListener, AngularVelocityListener {
 
     private static final int MEAN_FILTER_WINDOW = 10;
     private static final int MIN_SAMPLE_COUNT = 30;
@@ -28,6 +28,8 @@ public class MainActivity extends Activity implements SensorEventListener {
     private int magneticSampleCount = 0;
     private boolean hasInitialOrientation = false;
     private boolean stateInitializedCalibrated = false;
+
+    private FusedGyroscopeSensor fusedGyroscopeSensor;
 
     public static final float EPSILON = 0.000000001f;
 
@@ -72,7 +74,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         initMaths();
         initSensors();
         initFilters();
-        SpeechRecognizerInit();
+        //SpeechRecognizerInit();
 
     }
 
@@ -321,6 +323,11 @@ public class MainActivity extends Activity implements SensorEventListener {
                 sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                 SensorManager.SENSOR_DELAY_FASTEST);
 
+        sensorManager.registerListener(
+                fusedGyroscopeSensor,
+                sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                SensorManager.SENSOR_DELAY_FASTEST);
+
     }
 
     /**
@@ -360,6 +367,11 @@ public class MainActivity extends Activity implements SensorEventListener {
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         (new displaySpeechRecognizer(intent)).run();
+    }
+
+    @Override
+    public void onAngularVelocitySensorChanged(float[] angularVelocity, long timeStamp) {
+
     }
 
     public class displaySpeechRecognizer implements Runnable{
