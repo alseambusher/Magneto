@@ -12,15 +12,22 @@ import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
 import android.widget.Toast;
 
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static wear.alse.com.Magneto.Common.*;
+import static wear.alse.com.Magneto.Common.TIME_DELAY_SPEECH_RECOGNIZER;
+import static wear.alse.com.Magneto.Common.matrixMultiplication;
 
-public class MainActivity extends Activity implements SensorEventListener, AngularVelocityListener {
+public class MainActivity extends Activity implements SensorEventListener,
+        AngularVelocityListener {
 
+    public static final float EPSILON = 0.000000001f;
+
+    private static final String tag = MainActivity.class.getSimpleName();
+    private static final float NS2S = 1.0f / 1000000000.0f;
     private static final int MEAN_FILTER_WINDOW = 10;
     private static final int MIN_SAMPLE_COUNT = 30;
 
@@ -28,14 +35,11 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
     private int magneticSampleCount = 0;
     private boolean hasInitialOrientation = false;
     private boolean stateInitializedCalibrated = false;
+    private boolean stateInitializedRaw = false;
 
-    private FusedGyroscopeSensor fusedGyroscopeSensor;
+    private boolean useFusedEstimation = false;
 
-    public static final float EPSILON = 0.000000001f;
-
-    // private static final float NS2S = 1.0f / 10000.0f;
-    // Nano-second to second conversion
-    public static final float NS2S = 1.0f / 1000000000.0f;
+    private DecimalFormat df;
 
     // Calibrated maths.
     private float[] currentRotationMatrixCalibrated;
@@ -46,13 +50,20 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
 
     // Uncalibrated maths
     private float[] currentRotationMatrixRaw;
+    private float[] deltaRotationMatrixRaw;
+    private float[] deltaRotationVectorRaw;
+    private float[] gyroscopeOrientationRaw;
 
     // accelerometer and magnetometer based rotation matrix
     private float[] initialRotationMatrix;
     private float[] acceleration;
     private float[] magnetic;
 
+    private FusedGyroscopeSensor fusedGyroscopeSensor;
+
+
     private long timestampOldCalibrated = 0;
+    private long timestampOldRaw = 0;
 
     private MeanFilter accelerationFilter;
     private MeanFilter magneticFilter;
@@ -74,7 +85,7 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
         initMaths();
         initSensors();
         initFilters();
-        //SpeechRecognizerInit();
+        SpeechRecognizerInit();
 
     }
 
@@ -101,8 +112,21 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             onGyroscopeSensorChanged(event.values, event.timestamp);
         }
+        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
+            onGyroscopeSensorUncalibratedChanged(event.values, event.timestamp);
+        }
     }
 
+    @Override
+    public void onAngularVelocitySensorChanged(float[] angularVelocity,
+                                               long timeStamp) {
+        //xAxisCalibrated.setText(df.format(Math
+        //.toDegrees(angularVelocity[0])));
+        //yAxisCalibrated.setText(df.format(Math
+        //.toDegrees(angularVelocity[1])));
+        //zAxisCalibrated.setText(df.format(Math
+        //.toDegrees(angularVelocity[2])));
+    }
 
     public void onAccelerationSensorChanged(float[] acceleration, long timeStamp) {
         // Get a local copy of the raw magnetic values from the device sensor.
@@ -255,8 +279,78 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
         }
 
         // if it is a new gesture then save it to the file
-        if (shouldSave) Commands.write_new_gesture(x, y, z);
+        if (shouldSave) {
+            Commands.write_new_gesture((int) x, (int) y, (int) z);
+        }
     }
+
+    public void onGyroscopeSensorUncalibratedChanged(float[] gyroscope,
+                                                     long timestamp) {
+        // don't start until first accelerometer/magnetometer orientation has
+        // been acquired
+        if (!hasInitialOrientation) {
+            return;
+        }
+
+        // Initialization of the gyroscope based rotation matrix
+        if (!stateInitializedRaw) {
+            currentRotationMatrixRaw = matrixMultiplication(
+                    currentRotationMatrixRaw, initialRotationMatrix);
+
+            stateInitializedRaw = true;
+
+        }
+
+        // This timestep's delta rotation to be multiplied by the current
+        // rotation after computing it from the gyro sample data.
+        if (timestampOldRaw != 0 && stateInitializedRaw) {
+            final float dT = (timestamp - timestampOldRaw) * NS2S;
+
+            // Axis of the rotation sample, not normalized yet.
+            float axisX = gyroscope[0];
+            float axisY = gyroscope[1];
+            float axisZ = gyroscope[2];
+
+            // Calculate the angular speed of the sample
+            float omegaMagnitude = (float) Math.sqrt(axisX * axisX + axisY
+                    * axisY + axisZ * axisZ);
+
+            // Normalize the rotation vector if it's big enough to get the axis
+            if (omegaMagnitude > EPSILON) {
+                axisX /= omegaMagnitude;
+                axisY /= omegaMagnitude;
+                axisZ /= omegaMagnitude;
+            }
+
+            // Integrate around this axis with the angular speed by the timestep
+            // in order to get a delta rotation from this sample over the
+            // timestep. We will convert this axis-angle representation of the
+            // delta rotation into a quaternion before turning it into the
+            // rotation matrix.
+            float thetaOverTwo = omegaMagnitude * dT / 2.0f;
+
+            float sinThetaOverTwo = (float) Math.sin(thetaOverTwo);
+            float cosThetaOverTwo = (float) Math.cos(thetaOverTwo);
+
+            deltaRotationVectorRaw[0] = sinThetaOverTwo * axisX;
+            deltaRotationVectorRaw[1] = sinThetaOverTwo * axisY;
+            deltaRotationVectorRaw[2] = sinThetaOverTwo * axisZ;
+            deltaRotationVectorRaw[3] = cosThetaOverTwo;
+
+            SensorManager.getRotationMatrixFromVector(deltaRotationMatrixRaw,
+                    deltaRotationVectorRaw);
+
+            currentRotationMatrixRaw = matrixMultiplication(
+                    currentRotationMatrixRaw, deltaRotationMatrixRaw);
+
+            SensorManager.getOrientation(currentRotationMatrixRaw,
+                    gyroscopeOrientationRaw);
+        }
+
+        timestampOldRaw = timestamp;
+
+    }
+
     /**
      * Initialize the mean filters.
      */
@@ -292,7 +386,10 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
         currentGyroscopeOrientationCalibrated[1] = 361;
         currentGyroscopeOrientationCalibrated[2] = 361;
 
+        deltaRotationVectorRaw = new float[4];
+        deltaRotationMatrixRaw = new float[9];
         currentRotationMatrixRaw = new float[9];
+        gyroscopeOrientationRaw = new float[3];
 
         // Initialize the current rotation matrix as an identity matrix...
         currentRotationMatrixRaw[0] = 1.0f;
@@ -308,7 +405,6 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
                 .getSystemService(Context.SENSOR_SERVICE);
 
         fusedGyroscopeSensor = new FusedGyroscopeSensor();
-
     }
 
 
@@ -325,11 +421,40 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
                 sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                 SensorManager.SENSOR_DELAY_FASTEST);
 
-        sensorManager.registerListener(
-                fusedGyroscopeSensor,
-                sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
-                SensorManager.SENSOR_DELAY_FASTEST);
+        // Do not register for gyroscope updates if we are going to use the
+        // fused version of the sensor...
+        if (!useFusedEstimation) {
+            boolean enabled = sensorManager.registerListener(this,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+        }
 
+        // If we want to use the fused version of the gyroscope sensor.
+        if (useFusedEstimation) {
+            boolean hasGravity = sensorManager.registerListener(
+                    fusedGyroscopeSensor,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+
+            // If for some reason the gravity sensor does not exist, fall back
+            // onto the acceleration sensor.
+            if (!hasGravity) {
+                sensorManager.registerListener(fusedGyroscopeSensor,
+                        sensorManager
+                                .getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                        SensorManager.SENSOR_DELAY_FASTEST);
+            }
+
+            sensorManager.registerListener(fusedGyroscopeSensor,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+
+            boolean enabled = sensorManager.registerListener(
+                    fusedGyroscopeSensor,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+
+        }
     }
 
     /**
@@ -343,13 +468,32 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
         sensorManager.unregisterListener(this,
                 sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
 
-         sensorManager.unregisterListener(this,
-                sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+        if (!useFusedEstimation) {
+            sensorManager.unregisterListener(this,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+        }
+
+        if (useFusedEstimation) {
+            sensorManager.unregisterListener(fusedGyroscopeSensor,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
+
+            sensorManager.unregisterListener(fusedGyroscopeSensor,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
+
+            sensorManager.unregisterListener(fusedGyroscopeSensor,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
+
+            sensorManager.unregisterListener(fusedGyroscopeSensor,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+
+            fusedGyroscopeSensor.removeObserver(this);
+        }
 
         initMaths();
 
         hasInitialOrientation = false;
         stateInitializedCalibrated = false;
+        stateInitializedRaw = false;
     }
 
     @Override
@@ -365,24 +509,15 @@ public class MainActivity extends Activity implements SensorEventListener, Angul
 
     // Create an intent that can start the Speech Recognizer activity
     private void SpeechRecognizerInit() {
-        final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        (new displaySpeechRecognizer(intent)).run();
-    }
-
-    @Override
-    public void onAngularVelocitySensorChanged(float[] angularVelocity, long timeStamp) {
-
+        (new displaySpeechRecognizer()).run();
     }
 
     public class displaySpeechRecognizer implements Runnable{
-        Intent intent;
-        displaySpeechRecognizer(Intent i){
-            intent = i;
-        }
         @Override
         public void run() {
+            final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             startActivityForResult(intent, SPEECH_REQUEST_CODE);
             worker.schedule(this, TIME_DELAY_SPEECH_RECOGNIZER, TimeUnit.SECONDS);
             Common.TIME_DELAY_SPEECH_RECOGNIZER = 8;
