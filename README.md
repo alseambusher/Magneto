@@ -4,8 +4,6 @@ Magneto is a system using which people with physical disabilities will be able t
 
 See [this](http://lifepluslinux.blogspot.in/2015/02/gyroscope-accelerometer-geomagnetometer.html) for more details.  
 
-<div>
-YT("ArHQjQyIS70", print = TRUE)
-<iframe width="560" height="315" src="https://www.youtube.com/embed/KwDT-jdFseQ" frameborder="0" allowfullscreen="allowfullscreen">&nbsp;</iframe><br /><br/>
-<iframe width="560" height="315" src="https://www.youtube.com/embed/bbGgnCgv9rE" frameborder="0" allowfullscreen="allowfullscreen">&nbsp;</iframe>
-</div>
+[![Magneto Mouse control](http://img.youtube.com/vi/KwDT-jdFseQ/0.jpg)](http://www.youtube.com/watch?v=KwDT-jdFseQ)  
+[![Magneto Voice control](http://img.youtube.com/vi/bbGgnCgv9rE/0.jpg)](http://www.youtube.com/watch?v=bbGgnCgv9rE)
+
