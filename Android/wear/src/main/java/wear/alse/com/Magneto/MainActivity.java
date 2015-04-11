@@ -1,9 +1,6 @@
 package wear.alse.com.Magneto;
 
 import android.app.Activity;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Sensor;
@@ -14,6 +11,7 @@ import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -21,9 +19,8 @@ import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
-import static wear.alse.com.Magneto.Common.TIME_DELAY_SPEECH_RECOGNIZER;
+import static wear.alse.com.Magneto.Commands.delete_gestures;
 import static wear.alse.com.Magneto.Common.matrixMultiplication;
 
 public class MainActivity extends Activity implements SensorEventListener,
@@ -81,16 +78,8 @@ public class MainActivity extends Activity implements SensorEventListener,
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 01, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification.Builder builder = new Notification.Builder(getApplicationContext());
-        builder.setContentTitle("Magneto");
-        builder.setOngoing(true);
-        builder.setContentIntent(pendingIntent);
-        Notification notification = builder.build();
-        NotificationManager notificationManger =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManger.notify(01, notification);
+        // added this line to prevent app time outs
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
@@ -108,7 +97,7 @@ public class MainActivity extends Activity implements SensorEventListener,
                 command.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        SpeechRecognizerInit();
+                        TakeCommand();
                     }
                 });
             }
@@ -120,6 +109,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     }
 
     private void Init() {
+        delete_gestures();
         initMaths();
         initSensors();
         initFilters();
@@ -552,20 +542,11 @@ public class MainActivity extends Activity implements SensorEventListener,
 
 
     // Create an intent that can start the Speech Recognizer activity
-    private void SpeechRecognizerInit() {
-        (new displaySpeechRecognizer()).run();
-    }
-
-    public class displaySpeechRecognizer implements Runnable {
-        @Override
-        public void run() {
-            final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            startActivityForResult(intent, SPEECH_REQUEST_CODE);
-            worker.schedule(this, TIME_DELAY_SPEECH_RECOGNIZER, TimeUnit.SECONDS);
-            Common.TIME_DELAY_SPEECH_RECOGNIZER = 8;
-        }
+    private void TakeCommand() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        startActivityForResult(intent, SPEECH_REQUEST_CODE);
     }
 
     // This callback is invoked when the Speech Recognizer returns.

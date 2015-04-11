@@ -36,6 +36,7 @@ public class Commands {
         put("zoom in","15");
         put("zoomin","15");
         put("zoom out","16");
+        put("start temple run", "17");
     }};
 
     public static void handleMsg(String msg){
@@ -67,6 +68,9 @@ public class Commands {
         String msg = ""+x+" "+y+" "+z+"\n";
         writeLog(msg, Common.MOTION_LOGFILE);
     }
+    public static void delete_gestures(){
+        deleteLog(Common.MOTION_LOGFILE);
+    }
 
 
     public static void write_new_voice(String msg){
@@ -90,6 +94,17 @@ public class Commands {
             fOut.close();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void deleteLog(String _file){
+        File logFile = new File(_file);
+        if(logFile.exists()){
+            try {
+                logFile.delete();
+            } catch (Exception e){
+               e.printStackTrace();
+            }
         }
     }
 }
