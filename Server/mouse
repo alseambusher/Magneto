@@ -14,7 +14,7 @@ do
     cat motion.log 2>/dev/null| while read line
     do
         x=`echo $line| cut -d ' ' -f 1`
-        y=`echo $line| cut -d ' ' -f 2`
+        y=`echo $line| cut -d ' ' -f 3`
         #ipython clicker.py 2 `echo "scale=5;(s($x*0.017453293)/c($x*0.017453293))*400+500"|bc -l`  `echo "scale=5;(s($y*0.017453293)/c($y*0.017453293))*400+500"|bc -l`
         xdotool mousemove `echo "scale=5;(s($x*0.017453293)/c($x*0.017453293))*400+500"|bc -l`  `echo "scale=5;(s($y*0.017453293)/c($y*0.017453293))*400+400"|bc -l`
 

@@ -13,6 +13,8 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
+import android.view.View;
+import android.widget.Button;
 import android.widget.Toast;
 
 import java.text.DecimalFormat;
@@ -94,23 +96,51 @@ public class MainActivity extends Activity implements SensorEventListener,
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
             public void onLayoutInflated(WatchViewStub stub) {
+                Button calibrate_button = (Button) stub.findViewById(R.id.calibrate);
+                calibrate_button.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Init();
+                    }
+                });
+
+                Button command = (Button) stub.findViewById(R.id.command);
+                command.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        SpeechRecognizerInit();
+                    }
+                });
             }
         });
-        initMaths();
-        initSensors();
-        initFilters();
-        //SpeechRecognizerInit();
+
+        Init();
+
 
     }
 
+    private void Init() {
+        initMaths();
+        initSensors();
+        initFilters();
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         restart();
     }
 
+    @Override
     public void onPause() {
         super.onPause();
 
+        reset();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
         reset();
     }
 
@@ -279,15 +309,15 @@ public class MainActivity extends Activity implements SensorEventListener,
             currentGyroscopeOrientationCalibrated[2] = z;
             return;
         }
-        if ((Math.abs(X - x) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(X) - Math.abs(x)))%360) >= Common.THRESHOLD_ANGLE)) {
+        if ((Math.abs(X - x) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(X) - Math.abs(x))) % 360) >= Common.THRESHOLD_ANGLE)) {
             shouldSave = true;
             currentGyroscopeOrientationCalibrated[0] = x;
         }
-        if ((Math.abs(Y - y) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(Y) - Math.abs(y)))%360) >= Common.THRESHOLD_ANGLE)) {
+        if ((Math.abs(Y - y) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(Y) - Math.abs(y))) % 360) >= Common.THRESHOLD_ANGLE)) {
             shouldSave = true;
             currentGyroscopeOrientationCalibrated[1] = y;
         }
-        if ((Math.abs(Z - z) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(Z) - Math.abs(z)))%360) >= Common.THRESHOLD_ANGLE)) {
+        if ((Math.abs(Z - z) >= Common.THRESHOLD_ANGLE) || (((360 - (Math.abs(Z) - Math.abs(z))) % 360) >= Common.THRESHOLD_ANGLE)) {
             shouldSave = true;
             currentGyroscopeOrientationCalibrated[2] = z;
         }
@@ -526,7 +556,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         (new displaySpeechRecognizer()).run();
     }
 
-    public class displaySpeechRecognizer implements Runnable{
+    public class displaySpeechRecognizer implements Runnable {
         @Override
         public void run() {
             final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -547,7 +577,7 @@ public class MainActivity extends Activity implements SensorEventListener,
             List<String> results = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
-            Toast.makeText(this,spokenText,Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, spokenText, Toast.LENGTH_SHORT).show();
             Commands.handleMsg(spokenText);
         }
         super.onActivityResult(requestCode, resultCode, data);

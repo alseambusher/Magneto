@@ -7,13 +7,18 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="0.8"
-        android:text="C"
+        android:text="M"
         android:gravity="center"
-        android:textSize="200dp"
+        android:textSize="70dp"
         android:id="@+id/orientation"/>
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:id="@+id/command"
+        android:text="Command"/>
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:id="@+id/calibrate"
-        android:text="Calibrate"/>
+        android:text="Reset"/>
 </LinearLayout>
