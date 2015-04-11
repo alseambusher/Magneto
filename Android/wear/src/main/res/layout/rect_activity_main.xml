@@ -3,10 +3,17 @@
     xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
     android:layout_height="match_parent" android:orientation="vertical"
     tools:context=".MainActivity" tools:deviceIds="wear_square">
-
-    <ImageView
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:src="@drawable/logo"
-        android:id="@+id/imageView" />
+        android:layout_weight="0.8"
+        android:text="C"
+        android:gravity="center"
+        android:textSize="200dp"
+        android:id="@+id/orientation"/>
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/calibrate"
+        android:text="Calibrate"/>
 </LinearLayout>

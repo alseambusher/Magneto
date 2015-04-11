@@ -1,6 +1,9 @@
 package wear.alse.com.Magneto;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Sensor;
@@ -76,6 +79,17 @@ public class MainActivity extends Activity implements SensorEventListener,
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 01, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        Notification.Builder builder = new Notification.Builder(getApplicationContext());
+        builder.setContentTitle("Magneto");
+        builder.setOngoing(true);
+        builder.setContentIntent(pendingIntent);
+        Notification notification = builder.build();
+        NotificationManager notificationManger =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManger.notify(01, notification);
+
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
@@ -85,7 +99,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         initMaths();
         initSensors();
         initFilters();
-        SpeechRecognizerInit();
+        //SpeechRecognizerInit();
 
     }
 

@@ -4,8 +4,8 @@
 #adb -s localhost:4444 shell  "rm /sdcard/motion.log"
 #DEVICE=025f4685dcd48c09
 #DEVICE="192.168.1.3:5555"
-DEVICE="100.65.53.41:5555"
-#DEVICE="localhost:4444"
+#DEVICE="100.75.29.116:5555"
+DEVICE="localhost:4444"
 while [ 0 ]
 do
     adb -s $DEVICE pull /sdcard/motion.log 2>/dev/null
