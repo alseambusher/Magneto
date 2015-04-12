@@ -7,9 +7,9 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="0.8"
-        android:text="M"
+        android:text="L"
         android:gravity="center"
-        android:textSize="70dp"
+        android:textSize="70sp"
         android:id="@+id/orientation"/>
     <Button
         android:layout_width="match_parent"

@@ -13,14 +13,24 @@ import android.support.wearable.view.WatchViewStub;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.text.DecimalFormat;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static wear.alse.com.Magneto.Commands.delete_gestures;
+import static wear.alse.com.Magneto.Commands.deleteLog;
+import static wear.alse.com.Magneto.Common.DICTATE_LOGFILE;
+import static wear.alse.com.Magneto.Common.MOTION_BOTTOM;
+import static wear.alse.com.Magneto.Common.MOTION_LEFT;
+import static wear.alse.com.Magneto.Common.MOTION_RIGHT;
+import static wear.alse.com.Magneto.Common.MOTION_TOP;
+import static wear.alse.com.Magneto.Common.MOUSE_LOGFILE;
+import static wear.alse.com.Magneto.Common.NAVIGATION_LOGFILE;
+import static wear.alse.com.Magneto.Common.VOICE_LOGFILE;
 import static wear.alse.com.Magneto.Common.matrixMultiplication;
 
 public class MainActivity extends Activity implements SensorEventListener,
@@ -73,6 +83,12 @@ public class MainActivity extends Activity implements SensorEventListener,
     // We need the SensorManager to register for Sensor Events.
     private SensorManager sensorManager;
 
+    private TextView mCalibrateText;
+
+    // left top right bottom
+    private int[] mNavigationCalibration;
+
+    private int mNavigationState = -1;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,6 +97,7 @@ public class MainActivity extends Activity implements SensorEventListener,
         // added this line to prevent app time outs
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        Init();
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
@@ -100,16 +117,53 @@ public class MainActivity extends Activity implements SensorEventListener,
                         TakeCommand();
                     }
                 });
+
+                mCalibrateText = (TextView) stub.findViewById(R.id.orientation);
+                // calibrate L R T B. M is default text
+                mCalibrateText.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        String state = mCalibrateText.getText().toString();
+                        switch (state) {
+                            case "L":
+                                mNavigationCalibration[0] = Math.round
+                                        (currentGyroscopeOrientationCalibrated[0]); // x
+                                mCalibrateText.setText("R");
+                                break;
+                            case "R":
+                                mNavigationCalibration[2] = Math.round
+                                        (currentGyroscopeOrientationCalibrated[0]); // x
+                                mCalibrateText.setText("T");
+                                break;
+                            case "T":
+                                mNavigationCalibration[1] = Math.round
+                                        (currentGyroscopeOrientationCalibrated[2]); // z
+                                mCalibrateText.setText("B");
+                                break;
+                            case "B":
+                                mNavigationCalibration[3] = Math.round(currentGyroscopeOrientationCalibrated[2]); // z
+                                //mCalibrateText.setText
+                                        //(mNavigationCalibration[0] + " " + mNavigationCalibration[2] + " " + mNavigationCalibration[1] + " " + mNavigationCalibration[3]);
+                                //mCalibrateText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+                                mCalibrateText.setText("\\m/");
+                                break;
+                            default:
+                                mCalibrateText.setText("L");
+                                break;
+                        }
+                    }
+                });
             }
         });
-
-        Init();
-
-
     }
 
     private void Init() {
-        delete_gestures();
+        mNavigationCalibration = new int[4];
+        Arrays.fill(mNavigationCalibration, -1);
+        deleteLog(DICTATE_LOGFILE);
+        deleteLog(MOUSE_LOGFILE);
+        deleteLog(NAVIGATION_LOGFILE);
+        deleteLog(VOICE_LOGFILE);
         initMaths();
         initSensors();
         initFilters();
@@ -132,6 +186,13 @@ public class MainActivity extends Activity implements SensorEventListener,
     protected void onDestroy() {
         super.onDestroy();
         reset();
+    }
+
+    private Boolean isNavigationCalibrated(){
+        for(int element: mNavigationCalibration)
+            if(element ==  -1)
+                return false;
+        return true;
     }
 
     @Override
@@ -313,8 +374,28 @@ public class MainActivity extends Activity implements SensorEventListener,
         }
 
         // if it is a new gesture then save it to the file
-        if (shouldSave) {
-            Commands.write_new_gesture((int) x, (int) y, (int) z);
+        if (shouldSave && isNavigationCalibrated()) {
+            int navigationStateOld = mNavigationState;
+            // left - device moved beyond
+            if (mNavigationCalibration[0] > x)
+                mNavigationState = MOTION_LEFT;
+            else if(mNavigationCalibration[2] < x)
+                mNavigationState = MOTION_RIGHT;
+            else if(mNavigationCalibration[1] < z)
+                mNavigationState = MOTION_TOP;
+            else if(mNavigationCalibration[3] > z)
+                mNavigationState = MOTION_BOTTOM;
+            else
+                mNavigationState = -1; // somewhere in the middle
+
+
+            if(navigationStateOld != mNavigationState ) {
+                mCalibrateText.setText(""+mNavigationState);
+                if(mNavigationState != -1)
+                    Commands.write_new_navigation(mNavigationState);
+            }
+
+            //Commands.write_new_gesture((int) x, (int) y, (int) z);
         }
     }
 

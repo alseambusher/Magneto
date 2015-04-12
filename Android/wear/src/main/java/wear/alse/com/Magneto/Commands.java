@@ -66,15 +66,15 @@ public class Commands {
 
     public static void write_new_gesture(int x, int y, int z){
         String msg = ""+x+" "+y+" "+z+"\n";
-        writeLog(msg, Common.MOTION_LOGFILE);
+        writeLog(msg, Common.MOUSE_LOGFILE);
     }
-    public static void delete_gestures(){
-        deleteLog(Common.MOTION_LOGFILE);
-    }
-
 
     public static void write_new_voice(String msg){
-        writeLog(msg+"\n", Common.VOICE_LOGFILE);
+        writeLog(msg + "\n", Common.VOICE_LOGFILE);
+    }
+
+    public static void write_new_navigation(int nav){
+        writeLog(nav + "\n", Common.NAVIGATION_LOGFILE);
     }
 
     public static void write_new_dictation(String msg){
