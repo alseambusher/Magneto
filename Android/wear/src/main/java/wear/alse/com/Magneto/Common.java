@@ -12,10 +12,11 @@ public class Common {
     // speech recognizer keeps spawning every 5 seconds
     public static int TIME_DELAY_SPEECH_RECOGNIZER = 8;
 
-    public static int MOTION_LEFT = 0;
-    public static int MOTION_RIGHT = 1;
-    public static int MOTION_TOP = 2;
-    public static int MOTION_BOTTOM = 3;
+    public static String MOTION_LEFT = "l";
+    public static String MOTION_RIGHT = "r";
+    public static String MOTION_TOP = "t";
+    public static String MOTION_BOTTOM = "b";
+    public static String MOTION_CENTER = "C";
 
     public static float[] matrixMultiplication(float[] A, float[] B)
     {

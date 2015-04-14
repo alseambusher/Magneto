@@ -2,8 +2,11 @@
 
 #adb -s localhost:4444 pull /sdcard/motion.log
 #adb -s localhost:4444 shell  "rm /sdcard/motion.log"
-#DEVICE=025f4685dcd48c09
-DEVICE="192.168.1.3:5555"
+DEVICE_HOST_2=025f4685dcd48c09
+DEVICE_HOST=3a2a73c
+#DEVICE="192.168.1.3:5555"
+DEVICE="localhost:4444"
+adb -s $DEVICE shell  "rm /sdcard/voice.log 2>/dev/null" 2>/dev/null
 while [ 0 ]
 do
     adb -s $DEVICE pull /sdcard/voice.log 2>/dev/null
@@ -69,6 +72,34 @@ do
                 16)
                     echo 'tell application "System Events" to keystroke "-" using command down'|osascript
                     ;;
+		17)
+		    adb -s $DEVICE_HOST shell "am start -a android.media.action.IMAGE_CAPTURE"
+		    sleep 3
+		    adb -s $DEVICE_HOST shell "input keyevent KEYCODE_CAMERA"
+		    ;;
+		18)
+		    adb -s $DEVICE_HOST shell "am start -a android.media.action.VIDEO_CAPTURE"
+		    sleep 3
+		    adb -s $DEVICE_HOST shell "input keyevent KEYCODE_CAMERA"
+		    ;;
+		19)
+		    adb -s $DEVICE_HOST shell "input keyevent KEYCODE_CAMERA"
+		    ;;
+		20)
+		    adb -s $DEVICE_HOST shell "input keyevent KEYCODE_CAMERA"
+		    ;;
+		21)
+		    adb -s $DEVICE_HOST shell am start -a android.intent.action.CALL -d tel:9164320673
+		    ;;
+		22)
+		    adb -s $DEVICE_HOST_2 shell "am start -n com.devuni.flashlight/.MainActivity"
+		    sleep 2
+		    adb -s $DEVICE_HOST_2 shell input tap 200 550
+		    ;;
+		23)
+		    adb -s $DEVICE_HOST_2 shell input tap 200 550
+		    ;;
+
             esac
         done
         rm voice.log 2>/dev/null

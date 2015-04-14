@@ -25,6 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static wear.alse.com.Magneto.Commands.deleteLog;
 import static wear.alse.com.Magneto.Common.DICTATE_LOGFILE;
 import static wear.alse.com.Magneto.Common.MOTION_BOTTOM;
+import static wear.alse.com.Magneto.Common.MOTION_CENTER;
 import static wear.alse.com.Magneto.Common.MOTION_LEFT;
 import static wear.alse.com.Magneto.Common.MOTION_RIGHT;
 import static wear.alse.com.Magneto.Common.MOTION_TOP;
@@ -88,7 +89,7 @@ public class MainActivity extends Activity implements SensorEventListener,
     // left top right bottom
     private int[] mNavigationCalibration;
 
-    private int mNavigationState = -1;
+    private String mNavigationState = MOTION_CENTER;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -375,7 +376,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 
         // if it is a new gesture then save it to the file
         if (shouldSave && isNavigationCalibrated()) {
-            int navigationStateOld = mNavigationState;
+            String navigationStateOld = mNavigationState;
             // left - device moved beyond
             if (mNavigationCalibration[0] > x)
                 mNavigationState = MOTION_LEFT;
@@ -386,12 +387,12 @@ public class MainActivity extends Activity implements SensorEventListener,
             else if(mNavigationCalibration[3] > z)
                 mNavigationState = MOTION_BOTTOM;
             else
-                mNavigationState = -1; // somewhere in the middle
+                mNavigationState = MOTION_CENTER; // somewhere in the middle
 
 
-            if(navigationStateOld != mNavigationState ) {
-                mCalibrateText.setText(""+mNavigationState);
-                if(mNavigationState != -1)
+            if(!navigationStateOld.equals(mNavigationState)) {
+                mCalibrateText.setText(mNavigationState);
+                if(!mNavigationState.equals(MOTION_CENTER))
                     Commands.write_new_navigation(mNavigationState);
             }
 

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+#adb -s localhost:4444 pull /sdcard/motion.log
+#adb -s localhost:4444 shell  "rm /sdcard/motion.log"
+#DEVICE=025f4685dcd48c09
+#DEVICE="192.168.1.3:5555"
+DEVICE="localhost:4444"
+adb -s $DEVICE shell  "rm /sdcard/nav.log 2>/dev/null" 2>/dev/null
+while [ 0 ]
+do
+    adb -s $DEVICE pull /sdcard/nav.log 2>/dev/null
+    if [ -f "nav.log" ]
+    then
+        adb -s $DEVICE shell  "rm /sdcard/nav.log 2>/dev/null" 2>/dev/null
+        cat nav.log 2>/dev/null| while read line
+        do
+            echo $line
+            case $line in
+                l)
+		echo 'tell application "System Events" to key code 123'|osascript
+                    ;;
+                r)
+		echo 'tell application "System Events" to key code 124'|osascript
+                    ;;
+                t)
+		echo 'tell application "System Events" to key code 126'|osascript
+                    ;;
+                b)
+		echo 'tell application "System Events" to key code 125'|osascript
+                    ;;
+            esac
+        done
+        rm nav.log 2>/dev/null
+    fi
+ done
+#echo "tell application \"System Events\" to keystroke \"$1\"" | osascript

@@ -36,7 +36,13 @@ public class Commands {
         put("zoom in","15");
         put("zoomin","15");
         put("zoom out","16");
-        put("start temple run", "17");
+        put("take photo", "17");
+        put("take video", "18");
+        put("pause video", "19");
+        put("unpause video", "20");
+        put("help me", "21");
+        put("lights on", "22");
+        put("lights off", "23");
     }};
 
     public static void handleMsg(String msg){
@@ -73,7 +79,7 @@ public class Commands {
         writeLog(msg + "\n", Common.VOICE_LOGFILE);
     }
 
-    public static void write_new_navigation(int nav){
+    public static void write_new_navigation(String nav){
         writeLog(nav + "\n", Common.NAVIGATION_LOGFILE);
     }
 
